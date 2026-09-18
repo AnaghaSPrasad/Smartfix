@@ -4,7 +4,7 @@ from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import Profile
-from .serializers import RegisterSerializer, ProfileSerializer, WorkerSerializer
+from .serializers import AvailableWorkerSerializer, RegisterSerializer, ProfileSerializer, WorkerSerializer
 
 
 class IsAdminRole(permissions.BasePermission):
@@ -13,6 +13,12 @@ class IsAdminRole(permissions.BasePermission):
     def has_permission(self, request, view):
         profile = getattr(request.user, 'profile', None)
         return bool(request.user and request.user.is_authenticated and profile and profile.role == 'admin')
+
+
+class IsCustomer(permissions.BasePermission):
+    def has_permission(self, request, view):
+        profile = getattr(request.user, 'profile', None)
+        return bool(request.user and request.user.is_authenticated and profile and profile.role == 'customer')
 
 
 class RegisterView(generics.CreateAPIView):
@@ -84,6 +90,21 @@ class WorkerListView(generics.ListAPIView):
         if verified is not None:
             qs = qs.filter(is_verified=(verified.lower() == 'true'))
         return qs
+
+
+class AvailableWorkerListView(generics.ListAPIView):
+    """Customer view of verified workers currently available for booking."""
+    serializer_class = AvailableWorkerSerializer
+    permission_classes = [IsCustomer]
+
+    def get_queryset(self):
+        queryset = Profile.objects.filter(
+            role='worker', is_verified=True, is_available=True,
+        ).order_by('category', 'user__username')
+        category = self.request.query_params.get('category')
+        if category:
+            queryset = queryset.filter(category__iexact=category)
+        return queryset
 
 
 class VerifyWorkerView(APIView):

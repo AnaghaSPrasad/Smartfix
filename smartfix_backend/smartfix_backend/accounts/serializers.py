@@ -12,10 +12,11 @@ class RegisterSerializer(serializers.ModelSerializer):
         'min_length': 'Password must be at least 6 characters long.',
     })
     role = serializers.ChoiceField(choices=PUBLIC_ROLE_CHOICES, default='customer')
-    phone = serializers.CharField(required=True, allow_blank=False, error_messages={
-        'required': 'Phone number is required.',
-        'blank': 'Phone number cannot be blank.',
-    })
+    phone = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default='',
+    )
     email = serializers.EmailField(required=True, allow_blank=False, error_messages={
         'required': 'Email address is required.',
         'blank': 'Email address cannot be blank.',
@@ -49,10 +50,13 @@ class RegisterSerializer(serializers.ModelSerializer):
         return value
 
     def validate_phone(self, value):
+        if not value:
+            return ''
         value = value.strip()
-        cleaned = ''.join(filter(str.isdigit, value))
-        if len(cleaned) < 10:
-            raise serializers.ValidationError("Enter a valid phone number with at least 10 digits.")
+        if not value:
+            return ''
+        if not value.isdigit() or len(value) != 10:
+            raise serializers.ValidationError("Enter a valid 10-digit phone number.")
         return value
 
     def validate(self, data):
@@ -101,3 +105,12 @@ class WorkerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
         fields = ['id', 'username', 'email', 'phone', 'category', 'is_verified', 'is_available', 'date_joined']
+
+
+class AvailableWorkerSerializer(serializers.ModelSerializer):
+    """Limited worker information shown to customers before booking."""
+    username = serializers.CharField(source='user.username', read_only=True)
+
+    class Meta:
+        model = Profile
+        fields = ['id', 'username', 'category', 'is_available']

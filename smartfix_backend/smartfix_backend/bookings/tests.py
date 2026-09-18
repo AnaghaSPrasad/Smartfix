@@ -98,5 +98,13 @@ class SmartFixApiTests(TestCase):
         })
         self.assertEqual(res_res.status_code, 200)
         self.assertEqual(res_res.data['status'], 'resolved')
+        self.assertEqual(res_res.data['admin_note'], 'Contacted customer and offered 10% coupon.')
+
+        # Customer can see the resolution message.
+        self.client.force_authenticate(user=self.customer)
+        res_customer = self.client.get('/api/complaints/')
+        self.assertEqual(res_customer.status_code, 200)
+        self.assertEqual(res_customer.data[0]['status'], 'resolved')
+        self.assertEqual(res_customer.data[0]['admin_note'], 'Contacted customer and offered 10% coupon.')
 
 

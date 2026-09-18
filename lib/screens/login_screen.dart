@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
-import 'home_screen.dart';
 import 'register_screen.dart';
+import 'customer_home_screen.dart';
+import 'worker_home_screen.dart';
+import 'admin_home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -27,12 +29,12 @@ class _LoginScreenState extends State<LoginScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Icon(Icons.build_circle, size: 72, color: Colors.blueAccent),
+              const Icon(Icons.build_circle, size: 72, color: Color(0xFFE33434)),
               const SizedBox(height: 12),
               const Text(
                 'SmartFix',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF161A1D)),
               ),
               const Text(
                 'Book trusted home services',
@@ -72,8 +74,20 @@ class _LoginScreenState extends State<LoginScreen> {
                           _passwordController.text,
                         );
                         if (success && context.mounted) {
-                          Navigator.of(context).pushReplacement(
-                            MaterialPageRoute(builder: (_) => const HomeScreen()),
+                          Widget destination;
+                          switch (auth.role) {
+                            case 'worker':
+                              destination = const WorkerHomeScreen();
+                              break;
+                            case 'admin':
+                              destination = const AdminHomeScreen();
+                              break;
+                            default:
+                              destination = const CustomerHomeScreen();
+                          }
+                          Navigator.of(context).pushAndRemoveUntil(
+                            MaterialPageRoute(builder: (_) => destination),
+                            (route) => false,
                           );
                         }
                       },

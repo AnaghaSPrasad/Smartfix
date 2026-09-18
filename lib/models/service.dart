@@ -17,15 +17,32 @@ class ServiceItem {
     this.rating,
   });
 
+  static double _parseDouble(dynamic value, [double defaultValue = 0.0]) {
+    if (value == null) return defaultValue;
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? defaultValue;
+    return defaultValue;
+  }
+
+  static int _parseInt(dynamic value, [int defaultValue = 0]) {
+    if (value == null) return defaultValue;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? defaultValue;
+    return defaultValue;
+  }
+
   factory ServiceItem.fromJson(Map<String, dynamic> json) {
     return ServiceItem(
-      id: json['id'],
-      name: json['name'] ?? '',
-      category: json['category'] ?? '',
-      description: json['description'] ?? '',
-      price: (json['price'] as num?)?.toDouble() ?? 0.0,
-      imageUrl: json['image'],
-      rating: (json['rating'] as num?)?.toDouble(),
+      id: _parseInt(json['id']),
+      name: json['name']?.toString() ?? '',
+      category: json['category']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
+      price: _parseDouble(json['price']),
+      imageUrl: json['image']?.toString(),
+      rating: json['rating'] != null ? _parseDouble(json['rating']) : null,
     );
   }
 }
+
+

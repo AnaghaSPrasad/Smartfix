@@ -9,9 +9,8 @@ import '../models/complaint.dart';
 class ApiService {
 
 
-  // TODO: Update this to your Django backend's actual address.
-  // Use 10.0.2.2 instead of localhost when testing on the Android emulator.
-  static const String baseUrl = 'http://localhost:8000/api';
+  // Android emulator uses 10.0.2.2 to connect to Django host machine.
+  static const String baseUrl = 'http://10.0.2.2:8000/api';
 
   Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();

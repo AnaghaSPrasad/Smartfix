@@ -65,14 +65,25 @@ class AccountRegistrationTests(TestCase):
             'username': '',
             'email': '',
             'password': '',
-            'phone': '',
         }
         response = self.client.post('/api/auth/register/', data)
         self.assertEqual(response.status_code, 400)
         self.assertIn('username', response.data)
         self.assertIn('email', response.data)
         self.assertIn('password', response.data)
-        self.assertIn('phone', response.data)
+
+    def test_registration_without_phone(self):
+        data = {
+            'username': 'nophonecustomer',
+            'email': 'nophone@example.com',
+            'password': 'password123',
+        }
+        response = self.client.post('/api/auth/register/', data)
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data['username'], 'nophonecustomer')
+        self.assertEqual(response.data['role'], 'customer')
+        user = User.objects.get(username='nophonecustomer')
+        self.assertEqual(user.profile.phone, '')
 
     def test_invalid_email_format(self):
         data = {
@@ -106,6 +117,18 @@ class AccountRegistrationTests(TestCase):
         response = self.client.post('/api/auth/register/', data)
         self.assertEqual(response.status_code, 400)
         self.assertIn('phone', response.data)
+
+    def test_phone_must_be_exactly_ten_digits(self):
+        for suffix, phone in [('long', '98765432101'), ('letters', '98765432ab')]:
+            with self.subTest(phone=phone):
+                response = self.client.post('/api/auth/register/', {
+                    'username': f'userbadphone{suffix}',
+                    'email': f'badphone{suffix}@example.com',
+                    'password': 'password123',
+                    'phone': phone,
+                })
+                self.assertEqual(response.status_code, 400)
+                self.assertIn('phone', response.data)
 
     def test_duplicate_username(self):
         User.objects.create_user(username='existinguser', email='existing@example.com', password='password123')
