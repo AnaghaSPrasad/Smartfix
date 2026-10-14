@@ -7,6 +7,8 @@ import 'service_detail_screen.dart';
 import 'booking_screen.dart';
 import 'my_bookings_screen.dart';
 import 'login_screen.dart';
+import 'chatbot_screen.dart';
+import 'customer_complaints_screen.dart';
 
 class CustomerHomeScreen extends StatefulWidget {
   const CustomerHomeScreen({super.key});
@@ -85,19 +87,33 @@ class _ExploreServicesTabState extends State<_ExploreServicesTab> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final username = auth.profile?.username ?? 'Customer';
+    final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Welcome, $username 👋', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const Text('SmartFix Home Maintenance Services', style: TextStyle(fontSize: 12, color: Colors.white70)),
+            Text('Welcome, $username', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('Make home feel effortless', style: TextStyle(fontSize: 12, color: Colors.white70)),
           ],
         ),
-        backgroundColor: Colors.blueAccent,
+        backgroundColor: const Color(0xFF161A1D),
         foregroundColor: Colors.white,
         actions: [
+          TextButton.icon(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ChatbotScreen()),
+            ),
+            icon: const Icon(Icons.support_agent, size: 18),
+            label: const Text('Need Help?'),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white,
+              backgroundColor: const Color(0xFF2C3E50),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _refresh,
@@ -110,13 +126,20 @@ class _ExploreServicesTabState extends State<_ExploreServicesTab> {
           slivers: [
             // Search Bar
             SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(14.0),
-                child: TextField(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
+                  child: _buildHeroBanner(theme),
+                ),
+              ),
+
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  child: TextField(
                   controller: _searchController,
                   onChanged: (v) => setState(() => _searchQuery = v.trim().toLowerCase()),
                   decoration: InputDecoration(
-                    hintText: 'Search plumbing, electrical, cleaning...',
+                      hintText: 'What does your home need today?',
                     prefixIcon: const Icon(Icons.search),
                     suffixIcon: _searchQuery.isNotEmpty
                         ? IconButton(
@@ -128,12 +151,10 @@ class _ExploreServicesTabState extends State<_ExploreServicesTab> {
                           )
                         : null,
                     filled: true,
-                    fillColor: Colors.grey.shade100,
+                    fillColor: Colors.white,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade200)),
                   ),
                 ),
               ),
@@ -156,7 +177,9 @@ class _ExploreServicesTabState extends State<_ExploreServicesTab> {
                         avatar: Icon(_getCategoryIcon(cat), size: 16),
                         label: Text(cat),
                         selected: isSelected,
-                        selectedColor: Colors.blueAccent.shade100,
+                        selectedColor: const Color(0xFFFFD6D2),
+                        backgroundColor: Colors.white,
+                        side: BorderSide(color: Colors.grey.shade200),
                         onSelected: (_) {
                           setState(() => _selectedCategory = cat);
                         },
@@ -214,7 +237,7 @@ class _ExploreServicesTabState extends State<_ExploreServicesTab> {
                 }
 
                 return SliverPadding(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                   sliver: SliverList(
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
@@ -233,31 +256,82 @@ class _ExploreServicesTabState extends State<_ExploreServicesTab> {
     );
   }
 
+  Widget _buildHeroBanner(ThemeData theme) {
+    return Container(
+      height: 178,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        color: const Color(0xFF161A1D),
+        image: const DecorationImage(
+          image: NetworkImage('https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?auto=format&fit=crop&w=1200&q=85'),
+          fit: BoxFit.cover,
+          alignment: Alignment.centerRight,
+        ),
+        boxShadow: const [BoxShadow(color: Color(0x24123B47), blurRadius: 18, offset: Offset(0, 8))],
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          gradient: const LinearGradient(
+            colors: [Color(0xF2161A1D), Color(0xB2161A1D), Color(0x18161A1D)],
+            stops: [0, .58, 1],
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(color: const Color(0xFFFFD6D2), borderRadius: BorderRadius.circular(30)),
+              child: const Text('SMART SERVICES. SMARTER LIVING.', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF9D1F24))),
+            ),
+            const SizedBox(height: 12),
+            const SizedBox(
+              width: 230,
+              child: Text('Everything your home needs, in one place.', style: TextStyle(color: Colors.white, fontSize: 23, height: 1.08, fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(height: 8),
+            const Text('Trusted pros. Clear prices. Easy booking.', style: TextStyle(color: Colors.white70, fontSize: 12)),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildServiceCard(ServiceItem service) {
     return Card(
-      elevation: 2,
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 12),
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: BorderSide(color: Colors.grey.shade200)),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(18),
         onTap: () {
           Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => ServiceDetailScreen(service: service)),
           );
         },
         child: Padding(
-          padding: const EdgeInsets.all(14.0),
+          padding: const EdgeInsets.all(10),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: Image.network(
+                  _imageForCategory(service.category),
+                  width: 92,
+                  height: 112,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    width: 92,
+                    height: 112,
+                    color: const Color(0xFFFFE9E6),
+                    child: Icon(_getCategoryIcon(service.category), color: const Color(0xFFE33434), size: 30),
+                  ),
                 ),
-                child: Icon(_getCategoryIcon(service.category), color: Colors.blueAccent, size: 26),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -266,14 +340,14 @@ class _ExploreServicesTabState extends State<_ExploreServicesTab> {
                   children: [
                     Text(
                       service.name,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF19333A)),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       service.description,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
+                      style: TextStyle(color: Colors.grey.shade700, fontSize: 12, height: 1.3),
                     ),
                     const SizedBox(height: 10),
                     Row(
@@ -281,11 +355,11 @@ class _ExploreServicesTabState extends State<_ExploreServicesTab> {
                       children: [
                         Text(
                           '₹${service.price.toStringAsFixed(0)}',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.green),
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFFE33434)),
                         ),
                         ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blueAccent,
+                            backgroundColor: const Color(0xFFE33434),
                             foregroundColor: Colors.white,
                             visualDensity: VisualDensity.compact,
                           ),
@@ -294,7 +368,7 @@ class _ExploreServicesTabState extends State<_ExploreServicesTab> {
                               MaterialPageRoute(builder: (_) => BookingScreen(service: service)),
                             );
                           },
-                          child: const Text('Book Now'),
+                          child: const Text('Book now'),
                         ),
                       ],
                     ),
@@ -306,6 +380,25 @@ class _ExploreServicesTabState extends State<_ExploreServicesTab> {
         ),
       ),
     );
+  }
+
+  String _imageForCategory(String category) {
+    switch (category.toLowerCase()) {
+      case 'plumbing':
+        return 'https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?auto=format&fit=crop&w=500&q=80';
+      case 'electrical':
+        return 'https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&w=500&q=80';
+      case 'cleaning':
+        return 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=500&q=80';
+      case 'gardening':
+        return 'https://images.unsplash.com/photo-1558904541-efa843a96f01?auto=format&fit=crop&w=500&q=80';
+      case 'pest control':
+        return 'https://images.unsplash.com/photo-1585832770485-e68a5dbfad52?auto=format&fit=crop&w=500&q=80';
+      case 'appliance':
+        return 'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=500&q=80';
+      default:
+        return 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=500&q=80';
+    }
   }
 
   IconData _getCategoryIcon(String category) {
@@ -379,6 +472,18 @@ class _CustomerProfileTab extends StatelessWidget {
                   leading: Icon(Icons.badge, color: Colors.blueAccent),
                   title: Text('Account Role'),
                   subtitle: Text('Customer'),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.support_agent, color: Color(0xFFE33434)),
+                  title: const Text('My Complaints & Issues'),
+                  subtitle: const Text('View and track your submitted complaints'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const CustomerComplaintsScreen()),
+                    );
+                  },
                 ),
 
 

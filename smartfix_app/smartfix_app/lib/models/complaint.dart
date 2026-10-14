@@ -4,9 +4,10 @@ class Complaint {
   final String bookingSummary;
   final String customerName;
   final String description;
-  final String status; // 'open' or 'resolved'
+  final String status; // 'submitted', 'under_review', 'replied', 'resolved', 'closed', or 'open'
   final String adminNote;
   final DateTime? createdAt;
+  final DateTime? resolvedAt;
 
   Complaint({
     required this.id,
@@ -17,6 +18,7 @@ class Complaint {
     required this.status,
     this.adminNote = '',
     this.createdAt,
+    this.resolvedAt,
   });
 
   static int _parseInt(dynamic value, [int defaultValue = 0]) {
@@ -34,9 +36,10 @@ class Complaint {
       bookingSummary: json['booking_summary']?.toString() ?? '',
       customerName: json['customer_name']?.toString() ?? '',
       description: json['description']?.toString() ?? '',
-      status: json['status']?.toString() ?? 'open',
+      status: json['status']?.toString() ?? 'submitted',
       adminNote: json['admin_note']?.toString() ?? '',
       createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'].toString()) : null,
+      resolvedAt: json['resolved_at'] != null ? DateTime.tryParse(json['resolved_at'].toString()) : null,
     );
   }
 }

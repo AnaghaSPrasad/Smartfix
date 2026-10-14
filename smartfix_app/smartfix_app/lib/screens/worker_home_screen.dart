@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../providers/auth_provider.dart';
 import '../utils/status_style.dart';
 import 'login_screen.dart';
+import 'worker_tracking_screen.dart';
 
 
 
@@ -333,18 +334,59 @@ class _MyJobsTabState extends State<_MyJobsTab> {
                         alignment: Alignment.centerRight,
                         child: Wrap(
                           spacing: 8,
+                          runSpacing: 6,
+                          alignment: WrapAlignment.end,
                           children: [
-                            if (job.status == 'assigned')
+                            OutlinedButton.icon(
+                              icon: const Icon(Icons.navigation, size: 16),
+                              label: const Text('Map / Track'),
+                              onPressed: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(builder: (_) => WorkerTrackingScreen(booking: job)),
+                                );
+                              },
+                            ),
+                            if (job.status == 'assigned') ...[
                               ElevatedButton(
+                                onPressed: () => _updateStatus(job, 'accepted'),
+                                child: const Text('Accept Job'),
+                              ),
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00897B), foregroundColor: Colors.white),
+                                icon: const Icon(Icons.directions_bike, size: 16),
+                                onPressed: () => _updateStatus(job, 'on_the_way'),
+                                label: const Text('On The Way'),
+                              ),
+                            ],
+                            if (job.status == 'accepted')
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00897B), foregroundColor: Colors.white),
+                                icon: const Icon(Icons.directions_bike, size: 16),
+                                onPressed: () => _updateStatus(job, 'on_the_way'),
+                                label: const Text('On The Way'),
+                              ),
+                            if (job.status == 'on_the_way')
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE65100), foregroundColor: Colors.white),
+                                icon: const Icon(Icons.pin_drop, size: 16),
+                                onPressed: () => _updateStatus(job, 'arrived'),
+                                label: const Text('Mark Arrived'),
+                              ),
+                            if (job.status == 'arrived')
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(backgroundColor: Colors.purple, foregroundColor: Colors.white),
+                                icon: const Icon(Icons.play_arrow, size: 16),
                                 onPressed: () => _updateStatus(job, 'in_progress'),
-                                child: const Text('Start Job'),
+                                label: const Text('Start Work'),
                               ),
                             if (job.status == 'in_progress')
-                              ElevatedButton(
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+                                icon: const Icon(Icons.done_all, size: 16),
                                 onPressed: () => _updateStatus(job, 'completed'),
-                                child: const Text('Mark Complete'),
+                                label: const Text('Mark Complete'),
                               ),
-                            if (job.status == 'assigned' || job.status == 'in_progress')
+                            if (job.status != 'completed' && job.status != 'cancelled')
                               OutlinedButton(
                                 onPressed: () => _updateStatus(job, 'cancelled'),
                                 child: const Text('Cancel'),

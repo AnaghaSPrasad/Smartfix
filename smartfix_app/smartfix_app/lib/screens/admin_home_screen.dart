@@ -304,25 +304,74 @@ class _ComplaintsTabState extends State<_ComplaintsTab> {
   }
 
   Future<void> _resolve(Complaint c) async {
-    final noteController = TextEditingController();
+    final noteController = TextEditingController(text: c.adminNote);
+    String selectedStatus = c.status == 'submitted' || c.status == 'open' || c.status == 'under_review'
+        ? 'resolved'
+        : c.status;
+
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Resolve Complaint'),
-        content: TextField(
-          controller: noteController,
-          maxLines: 3,
-          decoration: const InputDecoration(labelText: 'Resolution note (optional)', border: OutlineInputBorder()),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: Text('Reply / Update Complaint #${c.id}'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Complaint Status:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                const SizedBox(height: 6),
+                DropdownButtonFormField<String>(
+                  initialValue: selectedStatus,
+                  decoration: const InputDecoration(border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
+                  items: const [
+                    DropdownMenuItem(value: 'under_review', child: Text('Under Review')),
+                    DropdownMenuItem(value: 'replied', child: Text('Replied')),
+                    DropdownMenuItem(value: 'resolved', child: Text('Resolved')),
+                    DropdownMenuItem(value: 'closed', child: Text('Closed')),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) setDialogState(() => selectedStatus = v);
+                  },
+                ),
+                const SizedBox(height: 14),
+                const Text('Admin Reply / Resolution Note:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: noteController,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'Enter solution or reply message...',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE33434), foregroundColor: Colors.white),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Save & Send'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Mark Resolved')),
-        ],
       ),
     );
+
     if (confirmed == true) {
+      final adminNote = noteController.text.trim();
+      if (adminNote.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please provide a reply note before updating the complaint.')),
+          );
+        }
+        return;
+      }
       try {
-        await _api.resolveComplaint(c.id, noteController.text.trim());
+        await _api.resolveComplaint(c.id, adminNote, status: selectedStatus);
         _refresh();
       } catch (e) {
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
@@ -358,39 +407,52 @@ class _ComplaintsTabState extends State<_ComplaintsTab> {
               final c = complaints[index];
               return Card(
                 margin: const EdgeInsets.symmetric(vertical: 6),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 child: Padding(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(14),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Expanded(child: Text(c.bookingSummary, style: const TextStyle(fontWeight: FontWeight.bold))),
-                          Chip(
-                            label: Text(c.status == 'open' ? 'Open' : 'Resolved'),
-                            backgroundColor: c.status == 'open' ? Colors.red.shade100 : Colors.green.shade100,
-                            visualDensity: VisualDensity.compact,
+                          Expanded(
+                            child: Text(
+                              'Complaint #${c.id}: ${c.bookingSummary}',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                            ),
                           ),
+                          ComplaintStatusChip(status: c.status),
                         ],
                       ),
-                      Text('From: ${c.customerName}', style: const TextStyle(fontSize: 13)),
                       const SizedBox(height: 4),
-                      Text(c.description),
-                      if (c.status == 'resolved' && c.adminNote.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text('Admin note: ${c.adminNote}', style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),
-                      ],
-                      if (c.status == 'open') ...[
+                      Text('Customer: ${c.customerName}', style: const TextStyle(fontSize: 13, color: Colors.blueAccent)),
+                      const SizedBox(height: 6),
+                      Text(c.description, style: const TextStyle(fontSize: 13)),
+                      if (c.adminNote.isNotEmpty) ...[
                         const SizedBox(height: 8),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: ElevatedButton(
-                            onPressed: () => _resolve(c),
-                            child: const Text('Resolve'),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            'Admin response: ${c.adminNote}',
+                            style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
                           ),
                         ),
                       ],
+                      const SizedBox(height: 10),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.reply, size: 16),
+                          label: Text(c.adminNote.isEmpty ? 'Reply / Resolve' : 'Edit Reply'),
+                          onPressed: () => _resolve(c),
+                        ),
+                      ),
                     ],
                   ),
                 ),
