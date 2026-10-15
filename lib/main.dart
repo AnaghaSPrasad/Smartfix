@@ -2,9 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
 import 'screens/login_screen.dart';
-import 'screens/home_screen.dart';
+import 'screens/customer_home_screen.dart';
+import 'screens/worker_home_screen.dart';
+import 'screens/admin_home_screen.dart';
+
+import 'utils/app_theme.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const SmartFixApp());
 }
 
@@ -18,22 +23,37 @@ class SmartFixApp extends StatelessWidget {
       child: MaterialApp(
         title: 'SmartFix',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          colorSchemeSeed: Colors.blueAccent,
-          useMaterial3: true,
-        ),
-        home: const AuthGate(),
+        theme: AppTheme.lightTheme,
+        home: const AuthWrapper(),
       ),
     );
   }
 }
 
-class AuthGate extends StatelessWidget {
-  const AuthGate({super.key});
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
-    return auth.isLoggedIn ? const HomeScreen() : const LoginScreen();
+
+    if (auth.isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (!auth.isLoggedIn) {
+      return const LoginScreen();
+    }
+
+    switch (auth.role) {
+      case 'worker':
+        return const WorkerHomeScreen();
+      case 'admin':
+        return const AdminHomeScreen();
+      default:
+        return const CustomerHomeScreen();
+    }
   }
 }

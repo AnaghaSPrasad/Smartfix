@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/booking.dart';
 import '../services/api_service.dart';
+import '../utils/app_theme.dart';
+import '../utils/app_widgets.dart';
 import '../utils/status_style.dart';
 import 'complaint_screen.dart';
 import 'customer_complaints_screen.dart';
@@ -37,12 +39,13 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('My Bookings'),
         actions: [
           IconButton(
             tooltip: 'My complaints',
-            icon: const Icon(Icons.support_agent),
+            icon: const Icon(Icons.support_agent, color: AppColors.primary),
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const CustomerComplaintsScreen()),
             ),
@@ -51,10 +54,10 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
       ),
       body: Column(
         children: [
-          // Filter Chips
+          // Filter Chips Bar
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            color: Colors.grey.shade100,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            color: Colors.white,
             child: Row(
               children: [
                 _buildFilterChip('All', 'all'),
@@ -65,21 +68,25 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
               ],
             ),
           ),
+          const Divider(height: 1),
           Expanded(
             child: RefreshIndicator(
+              color: AppColors.primary,
               onRefresh: _refresh,
               child: FutureBuilder<List<Booking>>(
                 future: _bookingsFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
+                    return const Center(
+                      child: CircularProgressIndicator(color: AppColors.primary),
+                    );
                   }
                   if (snapshot.hasError) {
                     return ListView(
                       children: [
                         Padding(
                           padding: const EdgeInsets.all(24.0),
-                          child: Text('Could not load bookings.\n${snapshot.error}', textAlign: TextAlign.center),
+                          child: AppBanner.error('Could not load bookings.\n${snapshot.error}'),
                         ),
                       ],
                     );
@@ -102,18 +109,11 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                     return ListView(
                       children: const [
                         Padding(
-                          padding: EdgeInsets.all(40.0),
-                          child: Center(
-                            child: Column(
-                              children: [
-                                Icon(Icons.assignment_outlined, size: 64, color: Colors.grey),
-                                SizedBox(height: 12),
-                                Text(
-                                  'No bookings found.',
-                                  style: TextStyle(fontSize: 16, color: Colors.grey),
-                                ),
-                              ],
-                            ),
+                          padding: EdgeInsets.only(top: 60.0),
+                          child: AppEmptyState(
+                            icon: Icons.assignment_outlined,
+                            title: 'No bookings found',
+                            subtitle: 'Your requested and past bookings will appear here.',
                           ),
                         ),
                       ],
@@ -121,7 +121,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                   }
 
                   return ListView.builder(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     itemCount: bookings.length,
                     itemBuilder: (context, index) {
                       final b = bookings[index];
@@ -140,10 +140,22 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
   Widget _buildFilterChip(String label, String value) {
     final isSelected = _filter == value;
     return ChoiceChip(
-      label: Text(label),
+      label: Text(
+        label,
+        style: TextStyle(
+          color: isSelected ? AppColors.primary : AppColors.textSecondary,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          fontSize: 13,
+        ),
+      ),
       selected: isSelected,
       onSelected: (_) => setState(() => _filter = value),
-      selectedColor: const Color(0xFFFFD6D2),
+      selectedColor: AppColors.primaryLight,
+      backgroundColor: Colors.white,
+      side: BorderSide(
+        color: isSelected ? AppColors.primary : AppColors.border,
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     );
   }
 
@@ -156,111 +168,130 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
         b.status == 'in_progress' ||
         b.status == 'completed';
 
-    return Card(
-      elevation: 2,
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header: Service Name & Status
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    b.serviceName,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+    return AppCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header: Service Name & Status
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  b.serviceName,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: AppColors.textPrimary,
                   ),
                 ),
-                StatusChip(status: b.status),
-              ],
-            ),
-            const SizedBox(height: 8),
-            // Request Type & Date
-            Row(
-              children: [
-                Icon(
-                  b.requestType == 'urgent' ? Icons.bolt : Icons.calendar_today,
-                  size: 15,
-                  color: b.requestType == 'urgent' ? Colors.deepOrange : Colors.grey,
+              ),
+              StatusChip(status: b.status),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // Request Type & Date
+          Row(
+            children: [
+              Icon(
+                b.requestType == 'urgent' ? Icons.bolt : Icons.calendar_today_outlined,
+                size: 15,
+                color: b.requestType == 'urgent' ? AppColors.primary : AppColors.textSecondary,
+              ),
+              const SizedBox(width: 5),
+              Text(
+                b.requestType == 'urgent'
+                    ? '⚡ Urgent Request (Auto-Assigned)'
+                    : (b.scheduledDate != null
+                        ? 'Scheduled: ${DateFormat('dd MMM yyyy, hh:mm a').format(b.scheduledDate!)}'
+                        : 'Scheduled Request'),
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: b.requestType == 'urgent' ? FontWeight.w600 : FontWeight.normal,
+                  color: b.requestType == 'urgent' ? AppColors.primary : AppColors.textSecondary,
                 ),
-                const SizedBox(width: 4),
-                Text(
-                  b.requestType == 'urgent'
-                      ? '⚡ Urgent Request (Auto-Assigned)'
-                      : (b.scheduledDate != null
-                          ? 'Scheduled: ${DateFormat('dd MMM yyyy, hh:mm a').format(b.scheduledDate!)}'
-                          : 'Scheduled Request'),
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: b.requestType == 'urgent' ? FontWeight.w600 : FontWeight.normal,
-                    color: b.requestType == 'urgent' ? Colors.deepOrange : Colors.grey.shade700,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text('📍 Address: ${b.address}', style: const TextStyle(fontSize: 13)),
-            if (b.workerName != null) ...[
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  const Icon(Icons.person, size: 16, color: Color(0xFFE33434)),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Assigned Worker: ${b.workerName}',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF161A1D)),
-                  ),
-                ],
               ),
             ],
-            if (b.notes.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text('📝 Notes: ${b.notes}', style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.black54)),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.location_on_outlined, size: 15, color: AppColors.textMuted),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  b.address,
+                  style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
+                ),
+              ),
             ],
-
-            const Divider(height: 20),
-
-            // Action Buttons
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              alignment: WrapAlignment.end,
+          ),
+          if (b.workerName != null) ...[
+            const SizedBox(height: 6),
+            Row(
               children: [
-                if (isTrackable)
-                  FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFFE33434),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    icon: const Icon(Icons.navigation, size: 16),
-                    label: const Text('Track Worker'),
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => WorkerTrackingScreen(booking: b)),
-                      );
-                    },
+                const Icon(Icons.person, size: 15, color: AppColors.primary),
+                const SizedBox(width: 4),
+                Text(
+                  'Assigned Worker: ${b.workerName}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
                   ),
-                TextButton.icon(
-                  style: TextButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    foregroundColor: Colors.grey.shade800,
-                  ),
-                  icon: const Icon(Icons.report_problem_outlined, size: 16),
-                  label: const Text('Report Issue'),
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => ComplaintScreen(booking: b)),
-                    );
-                  },
                 ),
               ],
             ),
           ],
-        ),
+          if (b.notes.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Notes: ${b.notes}',
+              style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: AppColors.textSecondary),
+            ),
+          ],
+
+          const Divider(height: 22),
+
+          // Action Buttons
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton.icon(
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  foregroundColor: AppColors.textSecondary,
+                ),
+                icon: const Icon(Icons.report_problem_outlined, size: 16),
+                label: const Text('Report Issue'),
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => ComplaintScreen(booking: b)),
+                  );
+                },
+              ),
+              if (isTrackable) ...[
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    minimumSize: const Size(0, 36),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  ),
+                  icon: const Icon(Icons.navigation, size: 15),
+                  label: const Text('Track Worker', style: TextStyle(fontSize: 13)),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => WorkerTrackingScreen(booking: b)),
+                    );
+                  },
+                ),
+              ],
+            ],
+          ),
+        ],
       ),
     );
   }

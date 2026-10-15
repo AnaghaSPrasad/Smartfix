@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../models/service.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
+import '../utils/app_theme.dart';
+import '../utils/app_widgets.dart';
 import 'booking_screen.dart';
 import 'my_bookings_screen.dart';
 import 'customer_complaints_screen.dart';
@@ -65,18 +67,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     super.dispose();
   }
 
-  void _retryLoadServices() {
-    setState(() {
-      _servicesFuture = _api.getServices();
-    });
-  }
-
-  void _retryLoadWorkers() {
-    setState(() {
-      _workersFuture = _api.getAvailableWorkers();
-    });
-  }
-
   void _sendMessage([String? suggestedMessage]) {
     final text = (suggestedMessage ?? _messageController.text).trim();
     if (text.isEmpty) return;
@@ -87,10 +77,11 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       _messages.add(_ChatMessage(text: text, fromUser: true));
       _messages.add(_replyMessageFor(text));
     });
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
+          _scrollController.position.maxScrollExtent + 120,
           duration: const Duration(milliseconds: 250),
           curve: Curves.easeOut,
         );
@@ -113,7 +104,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             label: const Text('Go to My Bookings & Track'),
             style: OutlinedButton.styleFrom(
               visualDensity: VisualDensity.compact,
-              foregroundColor: const Color(0xFFE33434),
+              foregroundColor: AppColors.primary,
+              side: const BorderSide(color: AppColors.primary),
             ),
             onPressed: () {
               Navigator.of(context).push(
@@ -137,7 +129,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             label: const Text('View or File Complaints'),
             style: OutlinedButton.styleFrom(
               visualDensity: VisualDensity.compact,
-              foregroundColor: const Color(0xFFE33434),
+              foregroundColor: AppColors.primary,
+              side: const BorderSide(color: AppColors.primary),
             ),
             onPressed: () {
               Navigator.of(context).push(
@@ -248,13 +241,14 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Row(
           children: [
             CircleAvatar(
               radius: 16,
-              backgroundColor: Color(0xFFFFD6D2),
-              child: Icon(Icons.smart_toy_rounded, color: Color(0xFFE33434), size: 18),
+              backgroundColor: AppColors.primaryLight,
+              child: Icon(Icons.smart_toy_rounded, color: AppColors.primary, size: 18),
             ),
             SizedBox(width: 10),
             Text('Book with Fixie'),
@@ -294,9 +288,17 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
           decoration: BoxDecoration(
             color: message.fromUser
-                ? Theme.of(context).colorScheme.primary
-                : Theme.of(context).colorScheme.surfaceContainerHighest,
+                ? AppColors.primary
+                : Colors.white,
             borderRadius: BorderRadius.circular(16),
+            border: message.fromUser ? null : Border.all(color: AppColors.border),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -304,7 +306,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
               Text(
                 message.text,
                 style: TextStyle(
-                  color: message.fromUser ? Theme.of(context).colorScheme.onPrimary : null,
+                  color: message.fromUser ? Colors.white : AppColors.textPrimary,
+                  fontSize: 13.5,
                   height: 1.35,
                 ),
               ),
@@ -323,47 +326,23 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Padding(
             padding: EdgeInsets.symmetric(vertical: 16),
-            child: Center(child: SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2))),
+            child: Center(child: SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2))),
           );
         }
         if (snapshot.hasError) {
-          return Container(
-            padding: const EdgeInsets.all(12),
-            margin: const EdgeInsets.only(bottom: 8),
-            decoration: BoxDecoration(
-              color: Colors.red.shade50,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.red.shade200),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.info_outline, color: Colors.red, size: 20),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'Unable to load services at the moment.',
-                    style: TextStyle(color: Colors.red, fontSize: 13),
-                  ),
-                ),
-                TextButton(
-                  onPressed: _retryLoadServices,
-                  child: const Text('Retry'),
-                ),
-              ],
-            ),
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: AppBanner.error('Unable to load services at the moment.'),
           );
         }
-
         final services = snapshot.data ?? [];
         final suggestions = _suggestions(services, _lastUserQuery);
-
         if (suggestions.isEmpty) {
           return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Text('No matching services found. Try describing your issue differently.', style: TextStyle(color: Colors.grey)),
+            padding: EdgeInsets.symmetric(vertical: 8.0),
+            child: Text('No service match found for this description.', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
           );
         }
-
         return Column(
           children: suggestions.map(_buildServiceCard).toList(),
         );
@@ -377,35 +356,69 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: LinearProgressIndicator(),
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Center(child: SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2))),
           );
         }
         if (snapshot.hasError) {
-          return Row(
-            children: [
-              const Expanded(
-                child: Text('Worker availability will be checked automatically when you book.', style: TextStyle(color: Colors.grey, fontSize: 13)),
-              ),
-              IconButton(
-                icon: const Icon(Icons.refresh, size: 18),
-                onPressed: _retryLoadWorkers,
-                tooltip: 'Retry workers',
-              ),
-            ],
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: AppBanner.error('Unable to load available workers right now.'),
           );
         }
         final workers = snapshot.data ?? [];
         if (workers.isEmpty) {
-          return const Text('No verified workers are marked available right now. Try a scheduled booking.', style: TextStyle(color: Colors.grey, fontSize: 13));
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8.0),
+            child: Text(
+              'No active workers are marked as available right now. You can still submit an Urgent or Scheduled request!',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+            ),
+          );
         }
-        return Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: workers.map((worker) => Chip(
-            avatar: const Icon(Icons.check_circle, color: Colors.green, size: 18),
-            label: Text('${worker.username} • ${worker.category}'),
-          )).toList(),
+        return Column(
+          children: workers.take(4).map((worker) {
+            return AppCard(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: const BoxDecoration(
+                      color: AppColors.successLight,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.person, color: AppColors.success, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          worker.username,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textPrimary),
+                        ),
+                        Text(
+                          worker.category ?? 'Verified Service Pro',
+                          style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppColors.successLight,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text('Available', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.success)),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
         );
       },
     );
@@ -415,94 +428,108 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     padding: const EdgeInsets.only(bottom: 8),
     child: Align(
       alignment: Alignment.centerLeft,
-      child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+      child: Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
     ),
   );
 
   Widget _buildServiceCard(ServiceItem service) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: const Color(0xFFFFE9E6),
-          child: Icon(_categoryIcon(service.category), color: const Color(0xFFE33434)),
-        ),
-        title: Text(service.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Text('${service.category} • From ₹${service.price.toStringAsFixed(0)}'),
-        trailing: FilledButton(
-          style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFFE33434),
-            visualDensity: VisualDensity.compact,
+    return AppCard(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.primaryLight,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(_categoryIcon(service.category), color: AppColors.primary, size: 22),
           ),
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => BookingScreen(service: service)),
-            );
-          },
-          child: const Text('Book now'),
-        ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(service.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppColors.textPrimary)),
+                const SizedBox(height: 2),
+                Text('${service.category} • From ₹${service.price.toStringAsFixed(0)}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+              ],
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              minimumSize: const Size(0, 32),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            ),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => BookingScreen(service: service)),
+              );
+            },
+            child: const Text('Book now', style: TextStyle(fontSize: 12)),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildComposer() {
-    return SafeArea(
-      top: false,
-      child: Column(
-        children: [
-          SizedBox(
-            height: 46,
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              scrollDirection: Axis.horizontal,
-              itemCount: _quickQuestions.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (context, index) => ActionChip(
-                label: Text(_quickQuestions[index]),
-                onPressed: () => _sendMessage(_quickQuestions[index]),
+    return Container(
+      color: Colors.white,
+      child: SafeArea(
+        top: false,
+        child: Column(
+          children: [
+            const Divider(height: 1),
+            const SizedBox(height: 6),
+            SizedBox(
+              height: 44,
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                scrollDirection: Axis.horizontal,
+                itemCount: _quickQuestions.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 6),
+                itemBuilder: (context, index) => ActionChip(
+                  label: Text(_quickQuestions[index], style: const TextStyle(fontSize: 12)),
+                  backgroundColor: AppColors.background,
+                  side: const BorderSide(color: AppColors.border),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  onPressed: () => _sendMessage(_quickQuestions[index]),
+                ),
               ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => _sendMessage(),
-                    decoration: InputDecoration(
-                      hintText: 'Describe what needs fixing...',
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(color: Color(0xFFE33434), width: 1.5),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _messageController,
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => _sendMessage(),
+                      decoration: const InputDecoration(
+                        hintText: 'Describe what needs fixing...',
+                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                IconButton.filled(
-                  style: IconButton.styleFrom(
-                    backgroundColor: const Color(0xFFE33434),
-                    foregroundColor: Colors.white,
+                  const SizedBox(width: 8),
+                  IconButton.filled(
+                    style: IconButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: _sendMessage,
+                    icon: const Icon(Icons.send_rounded, size: 20),
+                    tooltip: 'Send message',
                   ),
-                  onPressed: _sendMessage,
-                  icon: const Icon(Icons.send),
-                  tooltip: 'Send message',
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

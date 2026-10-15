@@ -5,6 +5,8 @@ import '../models/user.dart';
 import '../models/complaint.dart';
 import '../services/api_service.dart';
 import '../providers/auth_provider.dart';
+import '../utils/app_theme.dart';
+import '../utils/app_widgets.dart';
 import '../utils/status_style.dart';
 import 'login_screen.dart';
 
@@ -22,18 +24,29 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text(_titles[_tabIndex]),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
+            tooltip: 'Log out',
             onPressed: () async {
-              await context.read<AuthProvider>().logout();
-              if (context.mounted) {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const LoginScreen()),
-                  (route) => false,
-                );
+              final confirmed = await showAppConfirmDialog(
+                context: context,
+                title: 'Log Out',
+                message: 'Are you sure you want to log out of the Admin portal?',
+                confirmLabel: 'Log Out',
+                isDestructive: true,
+              );
+              if (confirmed == true && context.mounted) {
+                await context.read<AuthProvider>().logout();
+                if (context.mounted) {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                    (route) => false,
+                  );
+                }
               }
             },
           ),
@@ -51,9 +64,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         selectedIndex: _tabIndex,
         onDestinationSelected: (i) => setState(() => _tabIndex = i),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.verified_user), label: 'Workers'),
-          NavigationDestination(icon: Icon(Icons.list_alt), label: 'Bookings'),
-          NavigationDestination(icon: Icon(Icons.report_problem), label: 'Complaints'),
+          NavigationDestination(icon: Icon(Icons.verified_user_outlined), selectedIcon: Icon(Icons.verified_user), label: 'Workers'),
+          NavigationDestination(icon: Icon(Icons.list_alt), selectedIcon: Icon(Icons.list_alt), label: 'Bookings'),
+          NavigationDestination(icon: Icon(Icons.report_problem_outlined), selectedIcon: Icon(Icons.report_problem), label: 'Complaints'),
         ],
       ),
     );
@@ -72,6 +85,7 @@ class _VerifyWorkersTab extends StatefulWidget {
 class _VerifyWorkersTabState extends State<_VerifyWorkersTab> {
   final ApiService _api = ApiService();
   late Future<List<AppUser>> _workersFuture;
+  final Set<int> _processingWorkerIds = {};
 
   @override
   void initState() {
@@ -87,63 +101,281 @@ class _VerifyWorkersTabState extends State<_VerifyWorkersTab> {
   }
 
   Future<void> _setVerified(AppUser worker, bool verify) async {
+    if (_processingWorkerIds.contains(worker.id)) return;
+    setState(() => _processingWorkerIds.add(worker.id));
+
     try {
       await _api.verifyWorker(worker.id, verify);
-      _refresh();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: verify ? AppColors.success : AppColors.warning,
+            content: Row(
+              children: [
+                Icon(verify ? Icons.check_circle : Icons.info_outline, color: Colors.white, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    verify
+                        ? 'Worker "${worker.username}" verified successfully.'
+                        : 'Worker "${worker.username}" verification revoked.',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+      await _refresh();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.error,
+            content: Text('Failed to update worker: ${e.toString().replaceFirst("Exception: ", "")}'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _processingWorkerIds.remove(worker.id));
       }
     }
+  }
+
+  void _showWorkerDetails(AppUser worker) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: worker.isVerified ? AppColors.successLight : AppColors.warningLight,
+              child: Icon(
+                worker.isVerified ? Icons.verified : Icons.hourglass_top,
+                color: worker.isVerified ? AppColors.success : AppColors.warning,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(worker.username, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text(worker.category ?? 'Service Pro', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                ],
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildDetailRow(Icons.email_outlined, 'Email', worker.email),
+            _buildDetailRow(Icons.phone_outlined, 'Phone', (worker.phone != null && worker.phone!.isNotEmpty) ? worker.phone! : 'Not provided'),
+            _buildDetailRow(Icons.build_circle_outlined, 'Specialty', worker.category ?? 'General'),
+            _buildDetailRow(
+              Icons.verified_outlined,
+              'Status',
+              worker.isVerified ? 'Verified & Active' : 'Pending Admin Verification',
+            ),
+            if (worker.dateJoined != null)
+              _buildDetailRow(
+                Icons.calendar_today_outlined,
+                'Joined',
+                '${worker.dateJoined!.toLocal()}'.split(' ')[0],
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
+          if (!worker.isVerified)
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.success),
+              onPressed: () {
+                Navigator.pop(ctx);
+                _setVerified(worker, true);
+              },
+              child: const Text('Verify Worker'),
+            )
+          else
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(foregroundColor: AppColors.error),
+              onPressed: () {
+                Navigator.pop(ctx);
+                _setVerified(worker, false);
+              },
+              child: const Text('Revoke Verification'),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: AppColors.textMuted),
+          const SizedBox(width: 10),
+          Text('$label: ', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textPrimary)),
+          Expanded(child: Text(value, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary))),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
+      color: AppColors.primary,
       onRefresh: _refresh,
       child: FutureBuilder<List<AppUser>>(
         future: _workersFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
           }
           if (snapshot.hasError) {
             return ListView(
-              children: [Padding(padding: const EdgeInsets.all(24), child: Text('${snapshot.error}'))],
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: AppBanner.error('${snapshot.error}'),
+                ),
+              ],
             );
           }
           final workers = snapshot.data ?? [];
           if (workers.isEmpty) {
             return ListView(
-              children: const [Padding(padding: EdgeInsets.all(32), child: Center(child: Text('No workers have registered yet.')))],
+              children: const [
+                Padding(
+                  padding: EdgeInsets.only(top: 60),
+                  child: AppEmptyState(
+                    icon: Icons.people_outline,
+                    title: 'No workers registered yet',
+                    subtitle: 'Registered service providers will show up here for verification.',
+                  ),
+                ),
+              ],
             );
           }
           // Pending workers first.
           final sorted = [...workers]..sort((a, b) => (a.isVerified ? 1 : 0) - (b.isVerified ? 1 : 0));
           return ListView.builder(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             itemCount: sorted.length,
             itemBuilder: (context, index) {
               final w = sorted[index];
-              return Card(
-                margin: const EdgeInsets.symmetric(vertical: 6),
-                child: ListTile(
-                  leading: Icon(
-                    w.isVerified ? Icons.verified : Icons.hourglass_top,
-                    color: w.isVerified ? Colors.green : Colors.orange,
-                  ),
-                  title: Text(w.username),
-                  subtitle: Text('${w.category ?? '-'} • ${w.email}\n${w.phone ?? ''}'),
-                  isThreeLine: true,
-                  trailing: w.isVerified
-                      ? OutlinedButton(
-                          onPressed: () => _setVerified(w, false),
-                          child: const Text('Revoke'),
-                        )
-                      : ElevatedButton(
-                          onPressed: () => _setVerified(w, true),
-                          child: const Text('Verify'),
+              final isBusy = _processingWorkerIds.contains(w.id);
+
+              return AppCard(
+                padding: const EdgeInsets.all(14),
+                child: InkWell(
+                  onTap: () => _showWorkerDetails(w),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: w.isVerified ? AppColors.successLight : AppColors.warningLight,
+                          shape: BoxShape.circle,
                         ),
+                        child: Icon(
+                          w.isVerified ? Icons.verified : Icons.hourglass_top,
+                          color: w.isVerified ? AppColors.success : AppColors.warning,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  w.username,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.textPrimary),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: w.isVerified ? AppColors.successLight : AppColors.warningLight,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    w.isVerified ? 'Verified' : 'Pending',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: w.isVerified ? AppColors.success : AppColors.warning,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              '${w.category ?? '-'} • ${w.email}',
+                              style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                            ),
+                            if (w.phone != null && w.phone!.isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                'Phone: ${w.phone}',
+                                style: const TextStyle(fontSize: 12.5, color: AppColors.textMuted),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      isBusy
+                          ? const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                              ),
+                            )
+                          : (w.isVerified
+                              ? OutlinedButton(
+                                  style: OutlinedButton.styleFrom(
+                                    visualDensity: VisualDensity.compact,
+                                    foregroundColor: AppColors.error,
+                                    side: const BorderSide(color: AppColors.error),
+                                    minimumSize: const Size(0, 34),
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                  ),
+                                  onPressed: () => _setVerified(w, false),
+                                  child: const Text('Revoke', style: TextStyle(fontSize: 12)),
+                                )
+                              : ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    visualDensity: VisualDensity.compact,
+                                    backgroundColor: AppColors.success,
+                                    minimumSize: const Size(0, 34),
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                                  ),
+                                  onPressed: () => _setVerified(w, true),
+                                  child: const Text('Verify', style: TextStyle(fontSize: 12)),
+                                )),
+                    ],
+                  ),
                 ),
               );
             },
@@ -186,84 +418,123 @@ class _AllBookingsTabState extends State<_AllBookingsTab> {
     const statuses = ['pending', 'assigned', 'in_progress', 'completed', 'cancelled'];
     return Column(
       children: [
-        SizedBox(
-          height: 48,
+        Container(
+          color: Colors.white,
+          height: 52,
+          padding: const EdgeInsets.symmetric(vertical: 6),
           child: ListView(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: ChoiceChip(
-                  label: const Text('All'),
-                  selected: _statusFilter == null,
-                  onSelected: (_) => setState(() {
-                    _statusFilter = null;
-                    _load();
-                  }),
-                ),
-              ),
-              ...statuses.map((s) => Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: ChoiceChip(
-                      label: Text(statusLabel(s)),
-                      selected: _statusFilter == s,
-                      onSelected: (_) => setState(() {
-                        _statusFilter = s;
-                        _load();
-                      }),
-                    ),
-                  )),
+              _buildFilterChip('All', _statusFilter == null, () {
+                setState(() {
+                  _statusFilter = null;
+                  _load();
+                });
+              }),
+              ...statuses.map((s) => _buildFilterChip(statusLabel(s), _statusFilter == s, () {
+                    setState(() {
+                      _statusFilter = s;
+                      _load();
+                    });
+                  })),
             ],
           ),
         ),
+        const Divider(height: 1),
         Expanded(
           child: RefreshIndicator(
+            color: AppColors.primary,
             onRefresh: _refresh,
             child: FutureBuilder<List<Booking>>(
               future: _bookingsFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const Center(child: CircularProgressIndicator(color: AppColors.primary));
                 }
                 if (snapshot.hasError) {
                   return ListView(
-                    children: [Padding(padding: const EdgeInsets.all(24), child: Text('${snapshot.error}'))],
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: AppBanner.error('${snapshot.error}'),
+                      ),
+                    ],
                   );
                 }
                 final bookings = snapshot.data ?? [];
                 if (bookings.isEmpty) {
                   return ListView(
-                    children: const [Padding(padding: EdgeInsets.all(32), child: Center(child: Text('No bookings found.')))],
+                    children: const [
+                      Padding(
+                        padding: EdgeInsets.only(top: 60),
+                        child: AppEmptyState(
+                          icon: Icons.event_busy_outlined,
+                          title: 'No bookings found',
+                          subtitle: 'Bookings matching this filter will show up here.',
+                        ),
+                      ),
+                    ],
                   );
                 }
                 return ListView.builder(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   itemCount: bookings.length,
                   itemBuilder: (context, index) {
                     final b = bookings[index];
-                    return Card(
-                      margin: const EdgeInsets.symmetric(vertical: 6),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(child: Text(b.serviceName, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                StatusChip(status: b.status),
-                              ],
-                            ),
-                            Text('Customer: ${b.customerName ?? '-'}', style: const TextStyle(fontSize: 13)),
-                            Text('Worker: ${b.workerName ?? 'Unassigned'}', style: const TextStyle(fontSize: 13)),
-                            Text(
-                              b.requestType == 'urgent' ? 'Urgent' : 'Scheduled: ${b.scheduledDate?.toLocal().toString().split('.')[0] ?? '-'}',
-                              style: const TextStyle(fontSize: 12, color: Colors.grey),
-                            ),
-                          ],
-                        ),
+                    return AppCard(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  b.serviceName,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.textPrimary),
+                                ),
+                              ),
+                              StatusChip(status: b.status),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              const Icon(Icons.person_outline, size: 14, color: AppColors.textMuted),
+                              const SizedBox(width: 4),
+                              Text('Customer: ${b.customerName ?? '-'}', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          Row(
+                            children: [
+                              const Icon(Icons.handyman_outlined, size: 14, color: AppColors.textMuted),
+                              const SizedBox(width: 4),
+                              Text('Worker: ${b.workerName ?? 'Unassigned'}', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          Row(
+                            children: [
+                              Icon(
+                                b.requestType == 'urgent' ? Icons.bolt : Icons.schedule,
+                                size: 14,
+                                color: b.requestType == 'urgent' ? AppColors.primary : AppColors.textMuted,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                b.requestType == 'urgent' ? '⚡ Urgent Request' : 'Scheduled: ${b.scheduledDate?.toLocal().toString().split('.')[0] ?? '-'}',
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: b.requestType == 'urgent' ? FontWeight.w600 : FontWeight.normal,
+                                  color: b.requestType == 'urgent' ? AppColors.primary : AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     );
                   },
@@ -273,6 +544,28 @@ class _AllBookingsTabState extends State<_AllBookingsTab> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildFilterChip(String label, bool isSelected, VoidCallback onSelected) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: ChoiceChip(
+        label: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? AppColors.primary : AppColors.textSecondary,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            fontSize: 12.5,
+          ),
+        ),
+        selected: isSelected,
+        onSelected: (_) => onSelected(),
+        selectedColor: AppColors.primaryLight,
+        backgroundColor: Colors.white,
+        side: BorderSide(color: isSelected ? AppColors.primary : AppColors.border),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
     );
   }
 }
@@ -313,17 +606,21 @@ class _ComplaintsTabState extends State<_ComplaintsTab> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          title: Text('Reply / Update Complaint #${c.id}'),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          title: Text(
+            'Reply / Update Complaint #${c.id}',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+          ),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Complaint Status:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                const Text('Complaint Status:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textPrimary)),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
                   initialValue: selectedStatus,
-                  decoration: const InputDecoration(border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
+                  decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
                   items: const [
                     DropdownMenuItem(value: 'under_review', child: Text('Under Review')),
                     DropdownMenuItem(value: 'replied', child: Text('Replied')),
@@ -335,23 +632,27 @@ class _ComplaintsTabState extends State<_ComplaintsTab> {
                   },
                 ),
                 const SizedBox(height: 14),
-                const Text('Admin Reply / Resolution Note:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                const Text('Admin Reply / Resolution Note:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textPrimary)),
                 const SizedBox(height: 6),
                 TextField(
                   controller: noteController,
                   maxLines: 4,
                   decoration: const InputDecoration(
-                    labelText: 'Enter solution or reply message...',
-                    border: OutlineInputBorder(),
+                    hintText: 'Enter solution or reply message...',
                   ),
                 ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+            ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE33434), foregroundColor: Colors.white),
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(100, 40),
+              ),
               onPressed: () => Navigator.pop(ctx, true),
               child: const Text('Save & Send'),
             ),
@@ -365,7 +666,10 @@ class _ComplaintsTabState extends State<_ComplaintsTab> {
       if (adminNote.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please provide a reply note before updating the complaint.')),
+            const SnackBar(
+              backgroundColor: AppColors.error,
+              content: Text('Please provide a reply note before updating the complaint.'),
+            ),
           );
         }
         return;
@@ -374,7 +678,14 @@ class _ComplaintsTabState extends State<_ComplaintsTab> {
         await _api.resolveComplaint(c.id, adminNote, status: selectedStatus);
         _refresh();
       } catch (e) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: AppColors.error,
+              content: Text('Failed: $e'),
+            ),
+          );
+        }
       }
     }
   }
@@ -382,79 +693,102 @@ class _ComplaintsTabState extends State<_ComplaintsTab> {
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
+      color: AppColors.primary,
       onRefresh: _refresh,
       child: FutureBuilder<List<Complaint>>(
         future: _complaintsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
           }
           if (snapshot.hasError) {
             return ListView(
-              children: [Padding(padding: const EdgeInsets.all(24), child: Text('${snapshot.error}'))],
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: AppBanner.error('${snapshot.error}'),
+                ),
+              ],
             );
           }
           final complaints = snapshot.data ?? [];
           if (complaints.isEmpty) {
             return ListView(
-              children: const [Padding(padding: EdgeInsets.all(32), child: Center(child: Text('No complaints filed.')))],
+              children: const [
+                Padding(
+                  padding: EdgeInsets.only(top: 60),
+                  child: AppEmptyState(
+                    icon: Icons.check_circle_outline,
+                    title: 'No complaints filed',
+                    subtitle: 'All customer service requests are currently running smoothly.',
+                  ),
+                ),
+              ],
             );
           }
           return ListView.builder(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             itemCount: complaints.length,
             itemBuilder: (context, index) {
               final c = complaints[index];
-              return Card(
-                margin: const EdgeInsets.symmetric(vertical: 6),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Complaint #${c.id}: ${c.bookingSummary}',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                            ),
-                          ),
-                          ComplaintStatusChip(status: c.status),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text('Customer: ${c.customerName}', style: const TextStyle(fontSize: 13, color: Colors.blueAccent)),
-                      const SizedBox(height: 6),
-                      Text(c.description, style: const TextStyle(fontSize: 13)),
-                      if (c.adminNote.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
+              return AppCard(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
                           child: Text(
-                            'Admin response: ${c.adminNote}',
-                            style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+                            'Complaint #${c.id}: ${c.bookingSummary}',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: AppColors.textPrimary),
                           ),
                         ),
+                        ComplaintStatusChip(status: c.status),
                       ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Customer: ${c.customerName}',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.primary),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      c.description,
+                      style: const TextStyle(fontSize: 13.5, color: AppColors.textSecondary, height: 1.35),
+                    ),
+                    if (c.adminNote.isNotEmpty) ...[
                       const SizedBox(height: 10),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: OutlinedButton.icon(
-                          icon: const Icon(Icons.reply, size: 16),
-                          label: Text(c.adminNote.isEmpty ? 'Reply / Resolve' : 'Edit Reply'),
-                          onPressed: () => _resolve(c),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.background,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Text(
+                          'Admin response: ${c.adminNote}',
+                          style: const TextStyle(fontSize: 12.5, fontStyle: FontStyle.italic, color: AppColors.textPrimary),
                         ),
                       ),
                     ],
-                  ),
+                    const Divider(height: 20),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          minimumSize: const Size(0, 36),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        ),
+                        icon: const Icon(Icons.reply, size: 15),
+                        label: Text(c.adminNote.isEmpty ? 'Reply / Resolve' : 'Edit Reply'),
+                        onPressed: () => _resolve(c),
+                      ),
+                    ),
+                  ],
                 ),
               );
             },

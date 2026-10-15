@@ -8,11 +8,20 @@ from .serializers import RegisterSerializer, ProfileSerializer, WorkerSerializer
 
 
 class IsAdminRole(permissions.BasePermission):
-    """Only lets through users whose Profile.role == 'admin'."""
+    """Only lets through users whose Profile.role == 'admin' or superusers."""
 
     def has_permission(self, request, view):
+        if not (request.user and request.user.is_authenticated):
+            return False
+        if request.user.is_superuser or request.user.is_staff:
+            profile, _ = Profile.objects.get_or_create(user=request.user)
+            if profile.role != 'admin':
+                profile.role = 'admin'
+                profile.is_verified = True
+                profile.save()
+            return True
         profile = getattr(request.user, 'profile', None)
-        return bool(request.user and request.user.is_authenticated and profile and profile.role == 'admin')
+        return bool(profile and profile.role == 'admin')
 
 
 class RegisterView(generics.CreateAPIView):
@@ -91,10 +100,20 @@ class VerifyWorkerView(APIView):
     permission_classes = [IsAdminRole]
 
     def post(self, request, pk):
-        try:
-            profile = Profile.objects.get(pk=pk, role='worker')
-        except Profile.DoesNotExist:
-            return Response({'detail': 'Worker not found.'}, status=404)
-        profile.is_verified = bool(request.data.get('verify', True))
+        from django.db.models import Q
+        profile = Profile.objects.filter(Q(id=pk) | Q(user_id=pk), role='worker').first()
+        if not profile:
+            return Response({'detail': f'Worker with ID {pk} not found.'}, status=404)
+
+        raw_verify = request.data.get('verify')
+        if raw_verify is None:
+            raw_verify = request.query_params.get('verify', True)
+
+        if isinstance(raw_verify, str):
+            is_verified = raw_verify.strip().lower() in ('true', '1', 'yes')
+        else:
+            is_verified = bool(raw_verify)
+
+        profile.is_verified = is_verified
         profile.save()
         return Response(WorkerSerializer(profile).data)

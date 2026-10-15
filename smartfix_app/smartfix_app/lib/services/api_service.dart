@@ -265,7 +265,24 @@ class ApiService {
     if (res.statusCode == 200) {
       return AppUser.fromJson(jsonDecode(res.body));
     }
-    throw Exception('Failed to update worker verification: ${res.body}');
+    final msg = _parseErrorMessage(res.body, 'Failed to update worker verification (${res.statusCode})');
+    throw Exception(msg);
+  }
+
+  Future<Booking> updateWorkerLocation(int bookingId, double latitude, double longitude) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/bookings/$bookingId/location/'),
+      headers: await _authHeaders(),
+      body: jsonEncode({
+        'latitude': latitude,
+        'longitude': longitude,
+      }),
+    );
+    if (res.statusCode == 200) {
+      return Booking.fromJson(jsonDecode(res.body));
+    }
+    final msg = _parseErrorMessage(res.body, 'Failed to update location (${res.statusCode})');
+    throw Exception(msg);
   }
 
   Future<List<Booking>> getAllBookings({String? status}) async {
@@ -313,6 +330,8 @@ class ApiService {
     }
     throw Exception('Failed to file complaint: ${res.body}');
   }
+
+  Future<Complaint> createComplaint(int bookingId, String description) => fileComplaint(bookingId, description);
 
   Future<Complaint> resolveComplaint(int complaintId, String adminNote, {String status = 'resolved'}) async {
     final res = await http.post(

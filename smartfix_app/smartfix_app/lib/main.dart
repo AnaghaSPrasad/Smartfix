@@ -6,6 +6,8 @@ import 'screens/customer_home_screen.dart';
 import 'screens/worker_home_screen.dart';
 import 'screens/admin_home_screen.dart';
 
+import 'utils/app_theme.dart';
+
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const SmartFixApp());
@@ -21,19 +23,7 @@ class SmartFixApp extends StatelessWidget {
       child: MaterialApp(
         title: 'SmartFix',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          colorSchemeSeed: Colors.blueAccent,
-          useMaterial3: true,
-          cardTheme: CardThemeData(
-            elevation: 1.5,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-
-          appBarTheme: const AppBarTheme(
-            centerTitle: false,
-            elevation: 0,
-          ),
-        ),
+        theme: AppTheme.lightTheme,
         home: const AuthWrapper(),
       ),
     );

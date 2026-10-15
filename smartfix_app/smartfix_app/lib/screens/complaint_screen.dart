@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/booking.dart';
 import '../services/api_service.dart';
+import '../utils/app_theme.dart';
+import '../utils/app_widgets.dart';
 
 class ComplaintScreen extends StatefulWidget {
   final Booking? booking;
@@ -84,21 +86,29 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
       _error = null;
     });
 
-    final fullDescription = '[$_complaintCategory] ${_descriptionController.text.trim()}';
-
     try {
+      final fullDescription = '[$_complaintCategory] ${_descriptionController.text.trim()}';
       await _api.fileComplaint(_selectedBooking!.id, fullDescription);
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Complaint submitted successfully. Our team will review and reply.'),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.success,
+            content: Row(
+              children: [
+                Icon(Icons.check_circle_outline, color: Colors.white),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text('Complaint submitted successfully. Our team will review and reply soon.'),
+                ),
+              ],
+            ),
           ),
         );
         Navigator.of(context).pop(true);
       }
     } catch (e) {
-      setState(() => _error = 'Failed to submit complaint. ${e.toString().replaceFirst("Exception: ", "")}');
+      setState(() => _error = 'Failed to submit complaint: $e');
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -107,44 +117,27 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('File a Complaint'),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(18.0),
+        padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Info Card
-              Container(
-                padding: const EdgeInsets.all(14),
-                margin: const EdgeInsets.only(bottom: 18),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFE9E6),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFFFCCC7)),
-                ),
-                child: const Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.support_agent, color: Color(0xFFE33434), size: 24),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Your satisfaction is our priority. Please tell us about the issue and our support admin will investigate and respond promptly.',
-                        style: TextStyle(color: Color(0xFF161A1D), fontSize: 13, height: 1.35),
-                      ),
-                    ),
-                  ],
-                ),
+              // Info Banner
+              AppBanner.info(
+                'Your satisfaction is our priority. Please tell us about the issue and our support admin will investigate and respond promptly.',
               ),
+              const SizedBox(height: 18),
 
               // Service / Booking Selector
               const Text(
                 'Select Relevant Service / Booking *',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: AppColors.textPrimary),
               ),
               const SizedBox(height: 8),
 
@@ -152,131 +145,116 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
                 const Center(
                   child: Padding(
                     padding: EdgeInsets.all(16.0),
-                    child: CircularProgressIndicator(),
+                    child: CircularProgressIndicator(color: AppColors.primary),
                   ),
                 )
               else if (widget.booking != null)
                 // Pre-selected booking card
-                Card(
-                  elevation: 1,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Row(
-                      children: [
-                        const CircleAvatar(
-                          backgroundColor: Color(0xFFFFE9E6),
-                          child: Icon(Icons.handyman, color: Color(0xFFE33434)),
+                AppCard(
+                  padding: const EdgeInsets.all(14),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryLight,
+                          borderRadius: BorderRadius.circular(10),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '${widget.booking!.serviceName} (Booking #${widget.booking!.id})',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Worker: ${widget.booking!.workerName ?? "Unassigned"} • Status: ${widget.booking!.status}',
-                                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
-                              ),
-                            ],
-                          ),
+                        child: const Icon(Icons.handyman_rounded, color: AppColors.primary, size: 24),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${widget.booking!.serviceName} (Booking #${widget.booking!.id})',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: AppColors.textPrimary),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Address: ${widget.booking!.address}',
+                              style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 )
               else if (_myBookings.isEmpty)
-                Card(
-                  color: Colors.grey.shade50,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  child: const Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Text(
-                      'No bookings found on your account. You can only file complaints on existing service requests.',
-                      style: TextStyle(color: Colors.grey),
-                    ),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: const Text(
+                    'No bookings found. You need at least one service booking to file a complaint.',
+                    style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
                   ),
                 )
               else
                 DropdownButtonFormField<Booking>(
                   initialValue: _selectedBooking,
-                  isExpanded: true,
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.receipt_long_outlined),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.receipt_long_outlined, size: 20),
                   ),
+                  isExpanded: true,
                   items: _myBookings.map((b) {
-                    final dateStr = b.scheduledDate != null
-                        ? '${b.scheduledDate!.day}/${b.scheduledDate!.month}/${b.scheduledDate!.year}'
-                        : (b.requestType == 'urgent' ? 'Urgent' : 'Created');
                     return DropdownMenuItem<Booking>(
                       value: b,
                       child: Text(
-                        '#${b.id} ${b.serviceName} ($dateStr)',
+                        '#${b.id} - ${b.serviceName} (${b.status})',
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 13),
+                        style: const TextStyle(fontSize: 13.5),
                       ),
                     );
                   }).toList(),
                   onChanged: (b) => setState(() => _selectedBooking = b),
-                  validator: (v) => v == null ? 'Please select a booking' : null,
+                  validator: (b) => b == null ? 'Please choose a booking' : null,
                 ),
 
               const SizedBox(height: 18),
 
-              // Category Selector
+              // Issue Category Selector
               const Text(
-                'Type of Issue *',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                'Issue Category *',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: AppColors.textPrimary),
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 initialValue: _complaintCategory,
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.category_outlined),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.category_outlined, size: 20),
                 ),
-                items: _categories
-                    .map((c) => DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 14))))
-                    .toList(),
-                onChanged: (v) {
-                  if (v != null) setState(() => _complaintCategory = v);
+                items: _categories.map((c) {
+                  return DropdownMenuItem<String>(
+                    value: c,
+                    child: Text(c, style: const TextStyle(fontSize: 13.5)),
+                  );
+                }).toList(),
+                onChanged: (val) {
+                  if (val != null) setState(() => _complaintCategory = val);
                 },
               ),
 
               const SizedBox(height: 18),
 
-              // Description Field
+              // Complaint Description
               const Text(
                 'Complaint Description *',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: AppColors.textPrimary),
               ),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _descriptionController,
                 maxLines: 5,
-                maxLength: 500,
-                decoration: InputDecoration(
-                  hintText: 'Please describe in detail what went wrong, what the worker did, or how the service did not meet your expectations...',
+                decoration: const InputDecoration(
+                  hintText: 'Please describe the problem in detail (what happened, date, impact, etc.)...',
                   alignLabelWithHint: true,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: Color(0xFFE33434), width: 1.5),
-                  ),
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
@@ -291,54 +269,20 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
 
               // Error banner
               if (_error != null) ...[
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.red.shade200),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.error_outline, color: Colors.red, size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _error!,
-                          style: const TextStyle(color: Colors.red, fontSize: 13),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                const SizedBox(height: 14),
+                AppBanner.error(_error!),
               ],
 
               const SizedBox(height: 24),
 
               // Submit Button
-              SizedBox(
-                height: 50,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFE33434),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  ),
-                  onPressed: _isSubmitting || (_selectedBooking == null && _myBookings.isEmpty && widget.booking == null)
-                      ? null
-                      : _submit,
-                  child: _isSubmitting
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
-                        )
-                      : const Text(
-                          'Submit Complaint',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                ),
+              AppButton(
+                text: 'Submit Complaint',
+                icon: Icons.send_rounded,
+                isLoading: _isSubmitting,
+                onPressed: _isSubmitting || (_selectedBooking == null && _myBookings.isEmpty && widget.booking == null)
+                    ? null
+                    : _submit,
               ),
             ],
           ),

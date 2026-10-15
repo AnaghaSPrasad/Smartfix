@@ -8,6 +8,11 @@ class Booking {
   final String status; // pending, assigned, in_progress, completed, cancelled
   final String address;
   final String notes;
+  final double? customerLat;
+  final double? customerLng;
+  final double? workerLat;
+  final double? workerLng;
+  final DateTime? workerLocationUpdatedAt;
   final String? customerName;
   final int? workerId;
   final String? workerName;
@@ -23,6 +28,11 @@ class Booking {
     required this.status,
     required this.address,
     this.notes = '',
+    this.customerLat,
+    this.customerLng,
+    this.workerLat,
+    this.workerLng,
+    this.workerLocationUpdatedAt,
     this.customerName,
     this.workerId,
     this.workerName,
@@ -35,6 +45,14 @@ class Booking {
     if (value is num) return value.toInt();
     if (value is String) return int.tryParse(value) ?? defaultValue;
     return defaultValue;
+  }
+
+  static double? _parseDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is double) return value;
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
   }
 
   factory Booking.fromJson(Map<String, dynamic> json) {
@@ -50,13 +68,19 @@ class Booking {
       status: json['status']?.toString() ?? 'pending',
       address: json['address']?.toString() ?? '',
       notes: json['notes']?.toString() ?? '',
+      customerLat: _parseDouble(json['customer_lat'] ?? json['latitude']),
+      customerLng: _parseDouble(json['customer_lng'] ?? json['longitude']),
+      workerLat: _parseDouble(json['worker_lat'] ?? json['worker_latitude']),
+      workerLng: _parseDouble(json['worker_lng'] ?? json['worker_longitude']),
+      workerLocationUpdatedAt: json['worker_location_updated_at'] != null
+          ? DateTime.tryParse(json['worker_location_updated_at'].toString())
+          : null,
       customerName: json['customer_name']?.toString(),
       workerId: json['worker'] != null ? _parseInt(json['worker']) : null,
       workerName: json['worker_name']?.toString(),
       createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'].toString()) : null,
     );
   }
-
 
   Map<String, dynamic> toJson() {
     return {
@@ -65,6 +89,8 @@ class Booking {
       if (scheduledDate != null) 'scheduled_date': scheduledDate!.toIso8601String(),
       'address': address,
       'notes': notes,
+      if (customerLat != null) 'customer_lat': customerLat,
+      if (customerLng != null) 'customer_lng': customerLng,
     };
   }
 }

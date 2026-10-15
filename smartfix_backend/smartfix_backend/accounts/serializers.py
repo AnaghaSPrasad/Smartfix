@@ -97,7 +97,8 @@ class WorkerSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', read_only=True)
     email = serializers.CharField(source='user.email', read_only=True)
     date_joined = serializers.DateTimeField(source='user.date_joined', read_only=True)
+    user_id = serializers.IntegerField(source='user.id', read_only=True)
 
     class Meta:
         model = Profile
-        fields = ['id', 'username', 'email', 'phone', 'category', 'is_verified', 'is_available', 'date_joined']
+        fields = ['id', 'user_id', 'username', 'email', 'phone', 'role', 'category', 'is_verified', 'is_available', 'date_joined']

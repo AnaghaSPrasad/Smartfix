@@ -7,7 +7,7 @@ from django.utils import timezone
 from accounts.models import Profile
 from .models import Booking, Complaint
 from .serializers import (
-    BookingSerializer, BookingStatusUpdateSerializer,
+    BookingSerializer, BookingStatusUpdateSerializer, WorkerLocationUpdateSerializer,
     ComplaintSerializer, ComplaintResolveSerializer,
 )
 
@@ -133,11 +133,14 @@ class AcceptJobView(APIView):
 
 
 class UpdateJobStatusView(APIView):
-    """POST /api/bookings/<id>/update_status/  {status: in_progress|completed|cancelled}"""
+    """POST /api/bookings/<id>/update_status/  {status: accepted|on_the_way|arrived|in_progress|completed|cancelled}"""
     permission_classes = [permissions.IsAuthenticated, IsWorker]
 
     VALID_TRANSITIONS = {
-        'assigned': ['in_progress', 'cancelled'],
+        'assigned': ['accepted', 'on_the_way', 'in_progress', 'cancelled'],
+        'accepted': ['on_the_way', 'arrived', 'in_progress', 'cancelled'],
+        'on_the_way': ['arrived', 'in_progress', 'cancelled'],
+        'arrived': ['in_progress', 'cancelled'],
         'in_progress': ['completed', 'cancelled'],
     }
 
@@ -154,6 +157,39 @@ class UpdateJobStatusView(APIView):
                 {'detail': f'Cannot move a job from "{booking.status}" to "{new_status}".'}, status=400
             )
         booking.status = new_status
+        booking.save()
+        return Response(BookingSerializer(booking).data)
+
+
+class UpdateWorkerLocationView(APIView):
+    """
+    POST /api/bookings/<id>/location/
+    Worker sends real-time GPS coordinates while active on the job:
+    { "latitude": 12.9716, "longitude": 77.5946 }
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        profile = getattr(request.user, 'profile', None)
+        try:
+            booking = Booking.objects.get(pk=pk)
+        except Booking.DoesNotExist:
+            return Response({'detail': 'Booking not found.'}, status=404)
+
+        # Authorized only if the user is the assigned worker or admin
+        is_assigned_worker = (booking.worker_id == request.user.id)
+        is_admin = (profile and profile.role == 'admin') or request.user.is_staff or request.user.is_superuser
+        if not (is_assigned_worker or is_admin):
+            return Response({'detail': 'You are not authorized to update location for this booking.'}, status=403)
+
+        if booking.status in ['completed', 'cancelled']:
+            return Response({'detail': 'Location cannot be updated for completed or cancelled bookings.'}, status=400)
+
+        serializer = WorkerLocationUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        booking.worker_lat = serializer.validated_data['lat']
+        booking.worker_lng = serializer.validated_data['lng']
+        booking.worker_location_updated_at = timezone.now()
         booking.save()
         return Response(BookingSerializer(booking).data)
 

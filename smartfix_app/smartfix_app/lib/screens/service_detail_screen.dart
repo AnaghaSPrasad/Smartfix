@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/service.dart';
+import '../utils/app_theme.dart';
+import '../utils/app_widgets.dart';
 import 'booking_screen.dart';
 
 class ServiceDetailScreen extends StatelessWidget {
@@ -10,67 +12,81 @@ class ServiceDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text(service.name),
-        backgroundColor: Colors.blueAccent,
-        foregroundColor: Colors.white,
+        elevation: 0,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AppCard(
+                padding: const EdgeInsets.all(20.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Chip(
-                      label: Text(service.category),
-                      backgroundColor: Colors.blue.shade50,
-                      labelStyle: const TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryLight,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        service.category,
+                        style: const TextStyle(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12.5,
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     Text(
                       service.name,
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                        letterSpacing: -0.3,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     Text(
                       service.description,
-                      style: const TextStyle(fontSize: 14, color: Colors.black87, height: 1.4),
+                      style: const TextStyle(
+                        fontSize: 14.5,
+                        color: AppColors.textSecondary,
+                        height: 1.45,
+                      ),
                     ),
-                    const Divider(height: 24),
+                    const Divider(height: 28),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text(
                           'Estimated Price:',
-                          style: TextStyle(fontSize: 14, color: Colors.grey),
+                          style: TextStyle(fontSize: 14, color: AppColors.textMuted),
                         ),
                         Text(
                           '₹${service.price.toStringAsFixed(0)}',
-                          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.green),
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primary,
+                          ),
                         ),
                       ],
                     ),
                   ],
                 ),
               ),
-            ),
-            const Spacer(),
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueAccent,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
+              const Spacer(),
+              AppButton(
+                text: 'Book This Service',
+                icon: Icons.calendar_today_outlined,
                 onPressed: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
@@ -78,10 +94,9 @@ class ServiceDetailScreen extends StatelessWidget {
                     ),
                   );
                 },
-                child: const Text('Book This Service', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

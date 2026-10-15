@@ -10,7 +10,10 @@ REQUEST_TYPE_CHOICES = [
 STATUS_CHOICES = [
     ('pending', 'Pending'),        # created, waiting for a worker
     ('assigned', 'Assigned'),      # worker attached, not started yet
-    ('in_progress', 'In Progress'),
+    ('accepted', 'Accepted'),      # worker accepted job
+    ('on_the_way', 'On The Way'),  # worker traveling to customer
+    ('arrived', 'Arrived'),        # worker arrived at location
+    ('in_progress', 'In Progress'),# work started
     ('completed', 'Completed'),
     ('cancelled', 'Cancelled'),
 ]
@@ -25,6 +28,15 @@ class Booking(models.Model):
     scheduled_date = models.DateTimeField(null=True, blank=True)  # required for scheduled, blank for urgent
     address = models.CharField(max_length=255)
     notes = models.TextField(blank=True)
+
+    # Customer service location coordinates
+    customer_lat = models.FloatField(null=True, blank=True)
+    customer_lng = models.FloatField(null=True, blank=True)
+
+    # Live worker location tracking coordinates
+    worker_lat = models.FloatField(null=True, blank=True)
+    worker_lng = models.FloatField(null=True, blank=True)
+    worker_location_updated_at = models.DateTimeField(null=True, blank=True)
 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
